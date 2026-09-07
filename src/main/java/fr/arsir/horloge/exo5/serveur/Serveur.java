@@ -7,18 +7,6 @@ import java.util.Random;
 
 import fr.arsir.horloge.exo5.jeu.Jeu;
 
-/**
- * Q4 - Serveur du tic-tac-toe.
- *
- * La méthode principale :
- *   1. crée une instance de {@link Jeu} ;
- *   2. accepte la connexion de deux clients ;
- *   3. choisit aléatoirement le joueur qui commence ;
- *   4. lance les deux threads {@link Joueur} et attend la fin de la partie.
- *
- * Test possible avec netcat, dans deux terminaux :
- *   nc localhost 6666
- */
 public class Serveur {
 
     private static final String HOST = "localhost";
@@ -33,10 +21,8 @@ public class Serveur {
             System.out.println(
                     "Serveur tic-tac-toe démarré sur " + HOST + ":" + PORT);
 
-            // 1 - État de la partie
             Jeu jeu = new Jeu();
 
-            // 2 - Connexion des deux joueurs
             System.out.println("En attente du joueur X...");
             Socket socketX = serveurSocket.accept();
             Joueur joueurX = new Joueur(socketX, jeu, 'X');
@@ -49,12 +35,11 @@ public class Serveur {
             joueurX.setAdversaire(joueurO);
             joueurO.setAdversaire(joueurX);
 
-            // 3 - Choix aléatoire du joueur qui commence
+            // tirage au sort du joueur qui commence
             char premier = new Random().nextBoolean() ? 'X' : 'O';
             jeu.setJoueurCourant(premier);
             System.out.println("Le joueur " + premier + " commence.");
 
-            // 4 - Lancement des threads et attente de la fin de partie
             joueurX.start();
             joueurO.start();
 

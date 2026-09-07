@@ -5,17 +5,6 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 
-/**
- * Q5 - Client CLI (Command-Line Interpreter) du tic-tac-toe.
- *
- * L'utilisateur n'a pas à connaître le protocole : le client interprète
- * les messages du serveur, affiche la grille, et quand c'est au tour du
- * joueur il demande simplement un numéro de case (1 à 9).
- *
- * Le tic-tac-toe étant strictement au tour par tour, un seul fil
- * d'exécution suffit : on lit les messages du serveur en boucle et on ne
- * lit le clavier que lorsque le serveur envoie TON_TOUR (ou INVALIDE).
- */
 public class Client {
 
     private static final String HOST = "localhost";
@@ -78,15 +67,15 @@ public class Client {
                         break;
 
                     case "GAGNE":
-                        System.out.println(">>> Vous avez GAGNÉ ! <<<");
+                        System.out.println("Vous avez GAGNÉ ! ");
                         break;
 
                     case "PERDU":
-                        System.out.println(">>> Vous avez perdu. <<<");
+                        System.out.println("Vous avez perdu.");
                         break;
 
                     case "NUL":
-                        System.out.println(">>> Match nul. <<<");
+                        System.out.println("Match nul.");
                         break;
 
                     case "FIN":
@@ -152,7 +141,7 @@ public class Client {
                     return;
                 }
             } catch (NumberFormatException e) {
-                // on redemande
+                // saisie pas valide, on reboucle
             }
             System.out.println("Entrée invalide, tapez un chiffre entre 1 et 9.");
         }

@@ -7,28 +7,7 @@ import java.net.Socket;
 
 import fr.arsir.horloge.exo5.jeu.Jeu;
 
-/**
- * Q3 - Un thread {@code Joueur} gère, côté serveur, la communication avec
- * un client. Les deux instances (X et O) partagent la même instance de
- * {@link Jeu}, qui sert aussi de verrou pour sérialiser les coups.
- *
- * Protocole (voir aussi le compte rendu, Q2) :
- *
- *   serveur -> client :
- *     BIENVENUE X|O        symbole attribué
- *     MESSAGE <texte>      information à afficher
- *     DEBUT X|O            la partie commence, ce symbole joue en premier
- *     GRILLE <9 car.>      état complet ('.' = case vide)
- *     ADVERSAIRE <1..9>    l'adversaire a joué cette case
- *     TON_TOUR             à toi de jouer, envoie COUP <n>
- *     INVALIDE <raison>    coup refusé, rejoue
- *     GAGNE | PERDU | NUL  fin de partie
- *     FIN                  le serveur ferme la connexion
- *
- *   client -> serveur :
- *     COUP <1..9>          jouer cette case
- *     QUITTER              abandonner
- */
+
 public class Joueur extends Thread {
 
     private final Socket socket;
@@ -57,7 +36,6 @@ public class Joueur extends Thread {
         this.adversaire = adversaire;
     }
 
-    /** Envoie une ligne de protocole au client de ce joueur. */
     public void envoyer(String message) {
         sortie.println(message);
     }
@@ -78,8 +56,8 @@ public class Joueur extends Thread {
 
             String ligne;
 
-            // La lecture réseau se fait HORS du bloc synchronisé pour ne
-            // pas garder le verrou du jeu pendant l'attente.
+            // readLine() reste hors du synchronized, sinon on bloque le jeu
+            // pendant qu'on attend le réseau
             while (!jeu.estTermine() && (ligne = entree.readLine()) != null) {
 
                 ligne = ligne.trim();
@@ -96,8 +74,8 @@ public class Joueur extends Thread {
                 }
             }
 
-            // Sortie de boucle : soit la partie est finie, soit le client
-            // a coupé la connexion.
+            // on sort soit parce que la partie est finie, soit parce que
+            // le client a fermé sa connexion
             if (!jeu.estTermine()) {
                 abandon();
             } else {
@@ -112,7 +90,6 @@ public class Joueur extends Thread {
         }
     }
 
-    /** Extrait le numéro de case d'un message "COUP n" (-1 si invalide). */
     private int lireCase(String ligne) {
         try {
             return Integer.parseInt(ligne.substring(4).trim());
@@ -152,8 +129,8 @@ public class Joueur extends Thread {
                 return;
             }
 
-            // Partie terminée : on ferme les deux connexions, ce qui
-            // débloque le thread de l'adversaire (readLine -> null).
+            // ça ferme les deux sockets, ce qui débloque le readLine
+            // de l'adversaire côté thread
             envoyer("FIN");
             adversaire.envoyer("FIN");
             adversaire.fermerSocket();
@@ -161,7 +138,6 @@ public class Joueur extends Thread {
         }
     }
 
-    /** Ce joueur quitte : on prévient l'adversaire et on ferme tout. */
     private void abandon() {
         if (adversaire != null) {
             adversaire.envoyer("MESSAGE L'adversaire a quitté la partie.");
@@ -178,7 +154,7 @@ public class Joueur extends Thread {
                 socket.close();
             }
         } catch (Exception e) {
-            // fermeture au mieux
+            // pas grave si ça échoue, on ferme quand même
         }
     }
 }
