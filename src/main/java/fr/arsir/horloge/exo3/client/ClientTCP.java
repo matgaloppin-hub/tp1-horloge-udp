@@ -2,75 +2,40 @@ package fr.arsir.horloge.exo3.client;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import java.io.PrintWriter;
 import java.net.Socket;
 
-/**
- * Client de l'horloge parlante en TCP (exercice 3, Q2).
- *
- * L'utilisateur saisit au clavier DATE, HOUR, FULL ou CLOSE.
- * Chaque commande est envoyée au serveur, la réponse est affichée.
- * La saisie de CLOSE (ou "quit") termine le dialogue.
- */
 public class ClientTCP {
 
     private static final String HOST = "localhost";
     private static final int PORT = 6666;
 
-    public void dialoguer() {
+    public void demanderHeure() {
 
-        // 1 - Ouverture de la connexion TCP vers le serveur
-        try (Socket socket = new Socket(HOST, PORT);
-             BufferedReader reseauEntree = new BufferedReader(
-                     new InputStreamReader(socket.getInputStream()));
-             PrintWriter reseauSortie = new PrintWriter(
-                     socket.getOutputStream(), true);
-             BufferedReader clavier = new BufferedReader(
-                     new InputStreamReader(System.in))) {
+        try {
+            Socket socket = new Socket(HOST, PORT);
 
-            System.out.println(
-                    "Connecté au serveur " + HOST + ":" + PORT);
-            System.out.println(
-                    "Commandes : DATE | HOUR | FULL | CLOSE");
+            System.out.println("Connecté au serveur.");
 
-            String saisie;
+            BufferedReader entree =
+                    new BufferedReader(
+                            new InputStreamReader(
+                                    socket.getInputStream()
+                            )
+                    );
 
-            while (true) {
+            String heure = entree.readLine();
 
-                System.out.print("> ");
-                saisie = clavier.readLine();
+            System.out.println("Heure reçue du serveur : " + heure);
 
-                if (saisie == null) {
-                    saisie = "CLOSE";
-                }
-                saisie = saisie.trim();
-
-                if (saisie.isEmpty()) {
-                    continue;
-                }
-
-                // 2 - Envoi de la requête au serveur
-                reseauSortie.println(saisie);
-
-                // 3 - Lecture de la réponse
-                String reponse = reseauEntree.readLine();
-                System.out.println("Serveur : " + reponse);
-
-                // 4 - Fin du dialogue
-                if (saisie.equalsIgnoreCase("CLOSE")
-                        || reponse == null) {
-                    break;
-                }
-            }
+            socket.close();
 
         } catch (Exception e) {
             System.err.println("Erreur client : " + e.getMessage());
         }
-        // 5 - La socket est fermée automatiquement (try-with-resources)
-        System.out.println("Déconnecté.");
     }
 
     public static void main(String[] args) {
-        new ClientTCP().dialoguer();
+        ClientTCP client = new ClientTCP();
+        client.demanderHeure();
     }
 }
