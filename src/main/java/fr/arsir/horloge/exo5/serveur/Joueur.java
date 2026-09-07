@@ -7,89 +7,91 @@ import java.net.Socket;
 
 import fr.arsir.horloge.exo5.jeu.Jeu;
 
-
+// Q3 - un thread par client (cf. CM). Les deux Joueur partagent la même
+// instance de Jeu, qui sert aussi de verrou pour sérialiser les coups.
 public class Joueur extends Thread {
 
-    private final Socket socket;
+    private final Socket socketClient;
     private final Jeu jeu;
     private final char symbole;
 
-    private final BufferedReader entree;
-    private final PrintWriter sortie;
+    private final BufferedReader fluxEntree;
+    private final PrintWriter fluxSortie;
 
     private Joueur adversaire;
 
-    public Joueur(Socket socket, Jeu jeu, char symbole) throws Exception {
-        this.socket = socket;
+    public Joueur(Socket socketClient, Jeu jeu, char symbole) throws Exception {
+
+        this.socketClient = socketClient;
         this.jeu = jeu;
         this.symbole = symbole;
 
-        this.entree = new BufferedReader(
-                new InputStreamReader(socket.getInputStream()));
-        this.sortie = new PrintWriter(socket.getOutputStream(), true);
+        // ouverture des flux du canal
+        this.fluxEntree = new BufferedReader(
+                new InputStreamReader(socketClient.getInputStream()));
+
+        this.fluxSortie = new PrintWriter(
+                socketClient.getOutputStream(), true);
 
         envoyer("BIENVENUE " + symbole);
-        envoyer("MESSAGE En attente d'un second joueur...");
     }
 
     public void setAdversaire(Joueur adversaire) {
         this.adversaire = adversaire;
     }
 
+    // envoie une ligne de protocole au client
     public void envoyer(String message) {
-        sortie.println(message);
+        fluxSortie.println(message);
     }
 
     @Override
     public void run() {
 
         try {
-            envoyer("MESSAGE Les deux joueurs sont connectés.");
+            // 1 - Début de partie
             envoyer("DEBUT " + jeu.getJoueurCourant());
             envoyer("GRILLE " + jeu.grilleCompacte());
 
             if (jeu.getJoueurCourant() == symbole) {
                 envoyer("TON_TOUR");
-            } else {
-                envoyer("MESSAGE Au tour de l'adversaire.");
             }
 
             String ligne;
 
-            // readLine() reste hors du synchronized, sinon on bloque le jeu
-            // pendant qu'on attend le réseau
-            while (!jeu.estTermine() && (ligne = entree.readLine()) != null) {
+            // 2 - Recevoir les coups tant que la partie n'est pas finie
+            //     (lecture hors du bloc synchronisé pour ne pas bloquer le jeu)
+            while (!jeu.estTermine()
+                    && (ligne = fluxEntree.readLine()) != null) {
 
-                ligne = ligne.trim();
+                ligne = ligne.trim().toUpperCase();
 
-                if (ligne.equalsIgnoreCase("QUITTER")) {
-                    abandon();
-                    return;
+                if (ligne.equals("QUITTER")) {
+                    break;
                 }
 
-                if (ligne.toUpperCase().startsWith("COUP")) {
+                if (ligne.startsWith("COUP")) {
                     traiterCoup(lireCase(ligne));
                 } else {
                     envoyer("INVALIDE Commande inconnue (COUP <n> | QUITTER)");
                 }
             }
 
-            // on sort soit parce que la partie est finie, soit parce que
-            // le client a fermé sa connexion
-            if (!jeu.estTermine()) {
-                abandon();
-            } else {
-                fermerSocket();
+            // 3 - Libérer le canal (fin normale ou abandon)
+            if (!socketClient.isClosed()) {
+                terminer();
             }
 
         } catch (Exception e) {
-            if (!socket.isClosed()) {
-                System.err.println("Joueur " + symbole + " : " + e.getMessage());
+            if (!socketClient.isClosed()) {
+                System.err.println(
+                        "Erreur joueur " + symbole + " : " + e.getMessage());
             }
-            fermerSocket();
+            fermer();
         }
     }
 
+    // numéro de case d'un message "COUP n" (-1 si absent ou invalide)
     private int lireCase(String ligne) {
         try {
             return Integer.parseInt(ligne.substring(4).trim());
@@ -98,6 +100,7 @@ public class Joueur extends Thread {
         }
     }
 
+    // 4 - Traitement d'un coup, sous le verrou du jeu partagé
     private void traiterCoup(int caseJeu) {
 
         synchronized (jeu) {
@@ -129,32 +132,36 @@ public class Joueur extends Thread {
                 return;
             }
 
-            // ça ferme les deux sockets, ce qui débloque le readLine
-            // de l'adversaire côté thread
+            // partie finie : on ferme les deux canaux, ce qui débloque
+            // le readLine() du thread adverse
             envoyer("FIN");
             adversaire.envoyer("FIN");
-            adversaire.fermerSocket();
-            fermerSocket();
+            adversaire.fermer();
+            fermer();
         }
     }
 
-    private void abandon() {
+    // prévient l'adversaire puis ferme les deux canaux
+    private void terminer() {
+
         if (adversaire != null) {
-            adversaire.envoyer("MESSAGE L'adversaire a quitté la partie.");
+            if (!jeu.estTermine()) {
+                adversaire.envoyer("MESSAGE L'adversaire a quitté la partie.");
+            }
             adversaire.envoyer("FIN");
-            adversaire.fermerSocket();
+            adversaire.fermer();
         }
         envoyer("FIN");
-        fermerSocket();
+        fermer();
     }
 
-    void fermerSocket() {
+    void fermer() {
         try {
-            if (!socket.isClosed()) {
-                socket.close();
+            if (!socketClient.isClosed()) {
+                socketClient.close();
             }
         } catch (Exception e) {
-            // pas grave si ça échoue, on ferme quand même
+            // fermeture au mieux
         }
     }
 }

@@ -21,7 +21,7 @@ public class HorlogeService {
         return LocalTime.now().format(FORMAT_HEURE);
     }
 
-    public String getDateHeureCourante() {
+    public String getDateEtHeure() {
         LocalDateTime maintenant = LocalDateTime.now();
 
         return maintenant.format(FORMAT_DATE)
